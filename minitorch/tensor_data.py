@@ -87,8 +87,6 @@ def broadcast_index(
     Returns:
         None
     """
-    # final_shape = shape_broadcast(big_shape, shape)
-    print(big_shape, shape)
     dim, bdim = len(shape), len(big_shape)
     for i in range(dim):
         cdim, bcdim = dim - i - 1, bdim - i - 1
