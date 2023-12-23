@@ -87,8 +87,17 @@ def broadcast_index(
     Returns:
         None
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    # final_shape = shape_broadcast(big_shape, shape)
+    print(big_shape, shape)
+    dim, bdim = len(shape), len(big_shape)
+    for i in range(dim):
+        cdim, bcdim = dim - i - 1, bdim - i - 1
+        if shape[cdim] == big_shape[bcdim]:
+            out_index[cdim] = big_index[bcdim]
+        elif shape[cdim] == 1 and big_shape[bcdim] > 1:
+            out_index[cdim] = 0
+        else:
+            raise NotImplementedError("broadcasting edge case encountered!")
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
@@ -105,8 +114,24 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     Raises:
         IndexingError : if cannot broadcast
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    if shape1 == (1,):
+        return shape2
+    if shape2 == (1,):
+        return shape1
+    ndim1, ndim2 = len(shape1), len(shape2)
+    ndim = max(ndim1, ndim2)
+    shape = [0 for _ in range(ndim)]
+    for i in range(min(ndim1, ndim2)):
+        if (
+            (sh2 := shape2[ndim2 - i - 1]) == (sh1 := shape1[ndim1 - i - 1])
+            or sh1 == 1
+            or sh2 == 1
+        ):
+            shape[lidx := (ndim - i - 1)] = max(sh1, sh2)
+            continue
+        raise IndexingError("not broadcastable")
+    shape[:lidx] = (shape1 if ndim == ndim1 else shape2)[:lidx]
+    return tuple(shape)
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
