@@ -12,7 +12,6 @@ from .tensor_data import (
     index_to_position,
     shape_broadcast,
     to_index,
-    strides_from_shape,
 )
 
 if TYPE_CHECKING:
@@ -128,7 +127,6 @@ class SimpleOps(TensorOps):
         f = tensor_map(fn)
 
         def ret(a: Tensor, out: Optional[Tensor] = None) -> Tensor:
-            assert a._tensor.is_contiguous(), "tensor not continguous"
             if out is None:
                 out = a.zeros(a.shape)
             f(*out.tuple(), *a.tuple())
@@ -274,18 +272,14 @@ def tensor_map(fn: Callable[[float], float]) -> Any:
         size_out, size_in = len(out), len(in_storage)
         assert size_out == operators.prod(out_shape)
         assert size_in == operators.prod(in_shape)
-        if dim_out == dim_in and np.all(np.equal(out_shape, in_shape)):
-            for i, val in enumerate(in_storage):
-                out[i] = fn(val)
-        else:
-            assert dim_out >= dim_in, "out shape has more dims than in shape"
-            out_index = [0] * dim_out
-            in_index = [0] * dim_in
-            for i in range(size_out):
-                to_index(i, out_shape, out_index)
-                broadcast_index(out_index, out_shape, in_shape, in_index)
-                j = index_to_position(in_index, in_strides)
-                out[i] = fn(in_storage[j])
+        assert dim_out >= dim_in, "out shape has more dims than in shape"
+        out_index = [0] * dim_out
+        in_index = [0] * dim_in
+        for i in range(size_out):
+            to_index(i, out_shape, out_index, out_strides)
+            broadcast_index(out_index, out_shape, in_shape, in_index)
+            j = index_to_position(in_index, in_strides)
+            out[i] = fn(in_storage[j])
 
     return _map
 
@@ -339,31 +333,19 @@ def tensor_zip(fn: Callable[[float, float], float]) -> Any:
         assert size_out == operators.prod(out_shape)
         assert size_a == operators.prod(a_shape)
         assert size_b == operators.prod(b_shape)
-        if (
-            dim_out == dim_a
-            and dim_out == dim_b
-            and np.all(np.equal(out_shape, a_shape))
-            and np.all(np.equal(out_shape, b_shape))
-        ):
-            for i, (val_a, val_b) in enumerate(zip(a_storage, b_storage)):
-                out[i] = fn(val_a, val_b)
-        else:
-            assert (
-                dim_out >= dim_a and dim_out >= dim_b
-            ), "out shape has more dims than in shapes"
-            out_index = [0] * dim_out
-            a_index = [0] * dim_a
-            b_index = [0] * dim_b
-            for i in range(size_out):
-                to_index(i, out_shape, out_index)
-
-                broadcast_index(out_index, out_shape, a_shape, a_index)
-                a_j = index_to_position(a_index, a_strides)
-
-                broadcast_index(out_index, out_shape, b_shape, b_index)
-                b_j = index_to_position(b_index, b_strides)
-
-                out[i] = fn(a_storage[a_j], b_storage[b_j])
+        assert (
+            dim_out >= dim_a and dim_out >= dim_b
+        ), "out shape has more dims than in shapes"
+        out_index = [0] * dim_out
+        a_index = [0] * dim_a
+        b_index = [0] * dim_b
+        for i in range(size_out):
+            to_index(i, out_shape, out_index, out_strides)
+            broadcast_index(out_index, out_shape, a_shape, a_index)
+            a_j = index_to_position(a_index, a_strides)
+            broadcast_index(out_index, out_shape, b_shape, b_index)
+            b_j = index_to_position(b_index, b_strides)
+            out[i] = fn(a_storage[a_j], b_storage[b_j])
 
     return _zip
 
@@ -398,8 +380,20 @@ def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        dim_out, dim_a = len(out_shape), len(a_shape)
+        size_out, size_a = len(out), len(a_storage)
+        assert size_out == operators.prod(out_shape)
+        assert size_a == operators.prod(a_shape)
+        assert dim_out >= dim_a, "out shape has more dims than in shape"
+        out_index = np.array(out_shape)
+        a_index = np.array(a_shape)
+        rdim = int(a_shape[reduce_dim])
+        assert size_out == size_a / rdim
+        for i in range(size_a):
+            to_index(i, a_shape, a_index, a_strides)
+            broadcast_index(a_index, a_shape, out_shape, out_index)
+            j = index_to_position(out_index, out_strides)
+            out[j] = fn(out[j], a_storage[i])
 
     return _reduce
 

@@ -29,16 +29,6 @@ def test_one_args(
     "Test one-arg functions compared to floats"
     name, base_fn, tensor_fn = fn
     t2 = tensor_fn(t1)
-    print(
-        "debug",
-        tensor_fn,
-        t1,
-        t1._tensor.shape,
-        t1._tensor.strides,
-        t2,
-        t2._tensor.shape,
-        t2._tensor.strides,
-    )
     for ind in t2._tensor.indices():
         assert_close(t2[ind], base_fn(t1[ind]))
 
@@ -53,7 +43,6 @@ def test_two_args(
     name, base_fn, tensor_fn = fn
     t1, t2 = ts
     t3 = tensor_fn(t1, t2)
-    # print('debug',t1, t2, t3, tensor_fn)
     for ind in t3._tensor.indices():
         assert_close(t3[ind], base_fn(t1[ind], t2[ind]))
 

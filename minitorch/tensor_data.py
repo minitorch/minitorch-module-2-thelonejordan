@@ -45,7 +45,9 @@ def index_to_position(index: Index, strides: Strides) -> int:
     return int(sum(i * s for i, s in zip(index, strides)))
 
 
-def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
+def to_index(
+    ordinal: int, shape: Shape, out_index: OutIndex, strides: Optional[Strides] = None
+) -> None:
     """
     Convert an `ordinal` to an index in the `shape`.
     Should ensure that enumerating position 0 ... size of a
@@ -58,14 +60,17 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
+    assert len(out_index) == len(shape)
     size = int(prod(shape))
     if ordinal < 0 or ordinal >= size:
         raise IndexingError("Ordinal position out of bounds")
+    strides = strides_from_shape(shape) if strides is None else strides
+    assert len(strides) == len(shape), "strides and shape dims don't match"
     # for i in range(len(shape) - 1, -1, -1): # ordinal: 8, shape: (2, 2, 3), strides: (1, 2, 4)
     for i in range(len(shape)):  # ordinal: 8, shape: (2, 2, 3), strides: (6, 3, 1)
-        size //= shape[i]
-        out_index[i] = ordinal // size
-        ordinal %= size
+        stride = strides[i]
+        out_index[i] = ordinal // stride
+        ordinal %= stride
 
 
 def broadcast_index(
