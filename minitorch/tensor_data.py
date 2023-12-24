@@ -42,7 +42,7 @@ def index_to_position(index: Index, strides: Strides) -> int:
     Returns:
         Position in storage
     """
-    return np.dot(index, strides)
+    return int(sum(i * s for i, s in zip(index, strides)))
 
 
 def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
@@ -58,7 +58,7 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
-    size = np.prod(shape)
+    size = int(prod(shape))
     if ordinal < 0 or ordinal >= size:
         raise IndexingError("Ordinal position out of bounds")
     # for i in range(len(shape) - 1, -1, -1): # ordinal: 8, shape: (2, 2, 3), strides: (1, 2, 4)
@@ -87,13 +87,15 @@ def broadcast_index(
     Returns:
         None
     """
-    dim, bdim = len(shape), len(big_shape)
+    dim, bdim, fdim = len(shape), len(big_shape), len(out_index)
     for i in range(dim):
-        cdim, bcdim = dim - i - 1, bdim - i - 1
-        if shape[cdim] == big_shape[bcdim]:
-            out_index[cdim] = big_index[bcdim]
-        elif shape[cdim] == 1 and big_shape[bcdim] > 1:
-            out_index[cdim] = 0
+        x, y = dim - i - 1, bdim - i - 1
+        if x >= fdim:
+            continue
+        elif shape[x] == big_shape[y]:
+            out_index[x] = big_index[y]
+        elif shape[x] == 1:
+            out_index[x] = 0
         else:
             raise NotImplementedError("broadcasting edge case encountered!")
 
@@ -127,18 +129,19 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
         ):
             shape[lidx := (ndim - i - 1)] = max(sh1, sh2)
             continue
-        raise IndexingError("not broadcastable")
+        raise IndexingError("shapes not broadcastable")
     shape[:lidx] = (shape1 if ndim == ndim1 else shape2)[:lidx]
     return tuple(shape)
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
-    layout = [1]
-    offset = 1
-    for s in reversed(shape):
-        layout.append(s * offset)
-        offset = s * offset
-    return tuple(reversed(layout[:-1]))
+    dim = len(shape)
+    size = int(prod(shape))
+    strides = [0] * dim
+    for i in range(dim):
+        size //= shape[i]
+        strides[i] = size
+    return tuple(strides)
 
 
 class TensorData:
