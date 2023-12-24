@@ -12,7 +12,7 @@ from .tensor_data import (
     index_to_position,
     shape_broadcast,
     to_index,
-    strides_from_shape
+    strides_from_shape,
 )
 
 if TYPE_CHECKING:
@@ -128,7 +128,7 @@ class SimpleOps(TensorOps):
         f = tensor_map(fn)
 
         def ret(a: Tensor, out: Optional[Tensor] = None) -> Tensor:
-            assert a._tensor.is_contiguous(), 'tensor not continguous'
+            assert a._tensor.is_contiguous(), "tensor not continguous"
             if out is None:
                 out = a.zeros(a.shape)
             f(*out.tuple(), *a.tuple())
@@ -274,18 +274,19 @@ def tensor_map(fn: Callable[[float], float]) -> Any:
         size_out, size_in = len(out), len(in_storage)
         assert size_out == operators.prod(out_shape)
         assert size_in == operators.prod(in_shape)
-        if dim_out==dim_in and np.all(np.equal(out_shape, in_shape)):
+        if dim_out == dim_in and np.all(np.equal(out_shape, in_shape)):
             for i, val in enumerate(in_storage):
                 out[i] = fn(val)
         else:
-            assert dim_out >= dim_in, 'out shape has more dims than in shape'
+            assert dim_out >= dim_in, "out shape has more dims than in shape"
             out_index = [0] * dim_out
-            in_index  = [0] * dim_in
+            in_index = [0] * dim_in
             for i in range(size_out):
                 to_index(i, out_shape, out_index)
                 broadcast_index(out_index, out_shape, in_shape, in_index)
                 j = index_to_position(in_index, in_strides)
                 out[i] = fn(in_storage[j])
+
     return _map
 
 
@@ -338,14 +339,21 @@ def tensor_zip(fn: Callable[[float, float], float]) -> Any:
         assert size_out == operators.prod(out_shape)
         assert size_a == operators.prod(a_shape)
         assert size_b == operators.prod(b_shape)
-        if dim_out==dim_a and dim_out==dim_b and np.all(np.equal(out_shape, a_shape)) and np.all(np.equal(out_shape, b_shape)):
+        if (
+            dim_out == dim_a
+            and dim_out == dim_b
+            and np.all(np.equal(out_shape, a_shape))
+            and np.all(np.equal(out_shape, b_shape))
+        ):
             for i, (val_a, val_b) in enumerate(zip(a_storage, b_storage)):
                 out[i] = fn(val_a, val_b)
         else:
-            assert dim_out >= dim_a and dim_out >= dim_b, 'out shape has more dims than in shapes'
+            assert (
+                dim_out >= dim_a and dim_out >= dim_b
+            ), "out shape has more dims than in shapes"
             out_index = [0] * dim_out
-            a_index  = [0] * dim_a
-            b_index  = [0] * dim_b
+            a_index = [0] * dim_a
+            b_index = [0] * dim_b
             for i in range(size_out):
                 to_index(i, out_shape, out_index)
 
@@ -356,6 +364,7 @@ def tensor_zip(fn: Callable[[float, float], float]) -> Any:
                 b_j = index_to_position(b_index, b_strides)
 
                 out[i] = fn(a_storage[a_j], b_storage[b_j])
+
     return _zip
 
 
