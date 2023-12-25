@@ -166,7 +166,8 @@ class Scalar:
         assert len(derivatives) == len(
             h.inputs
         ), "No. of inputs & derivatives don't match"
-        return [(x, y) for x, y in zip(h.inputs, derivatives)]
+        for x in zip(h.inputs, derivatives):
+            yield tuple(x)
 
     def backward(self, d_output: Optional[float] = None) -> None:
         """

@@ -214,7 +214,6 @@ class SimpleOps(TensorOps):
             # Other values when not sum.
             out = a.zeros(tuple(out_shape))
             out._tensor._storage[:] = start
-
             f(*out.tuple(), *a.tuple(), dim)
             return out
 
@@ -384,16 +383,19 @@ def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
         size_out, size_a = len(out), len(a_storage)
         assert size_out == operators.prod(out_shape)
         assert size_a == operators.prod(a_shape)
-        assert dim_out >= dim_a, "out shape has more dims than in shape"
-        out_index = np.array(out_shape)
-        a_index = np.array(a_shape)
-        rdim = int(a_shape[reduce_dim])
-        assert size_out == size_a / rdim
-        for i in range(size_a):
-            to_index(i, a_shape, a_index, a_strides)
-            broadcast_index(a_index, a_shape, out_shape, out_index)
-            j = index_to_position(out_index, out_strides)
-            out[j] = fn(out[j], a_storage[i])
+        assert dim_out >= dim_a, "out shape has less dims than in shape"
+        if int(a_shape[reduce_dim]) == 1:
+            for i in range(size_out):
+                out[i] = a_storage[i]
+        else:
+            out_index = np.array([0] * dim_out)
+            a_index = np.array([0] * dim_a)
+            for i in range(size_a):
+                to_index(i, a_shape, a_index, a_strides)
+                broadcast_index(a_index, a_shape, out_shape, out_index)
+                j = index_to_position(out_index, out_strides)
+                assert j < size_out, "index out of range"
+                out[j] = fn(out[j], a_storage[i])
 
     return _reduce
 

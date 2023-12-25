@@ -60,14 +60,18 @@ def to_index(
         out_index : return index corresponding to position.
 
     """
-    assert len(out_index) == len(shape)
-    size = int(prod(shape))
+    # donot reassign out_index, you can assign to it
+    if not isinstance(shape, np.ndarray):
+        shape = np.array(shape, dtype=np.int32)
+    dim, size = shape.size, int(prod(shape))
+    assert len(out_index) == dim, "out_index"  # TODO: convert to out_index.size
     if ordinal < 0 or ordinal >= size:
         raise IndexingError("Ordinal position out of bounds")
     strides = strides_from_shape(shape) if strides is None else strides
-    assert len(strides) == len(shape), "strides and shape dims don't match"
-    # for i in range(len(shape) - 1, -1, -1): # ordinal: 8, shape: (2, 2, 3), strides: (1, 2, 4)
-    for i in range(len(shape)):  # ordinal: 8, shape: (2, 2, 3), strides: (6, 3, 1)
+    if not isinstance(strides, np.ndarray):
+        strides = np.array(strides, dtype=np.int32)
+    assert strides.size == dim, "strides and shape dims don't match"
+    for i in reversed(np.argsort(np.multiply(strides, shape)).tolist()):
         stride = strides[i]
         out_index[i] = ordinal // stride
         ordinal %= stride
@@ -92,12 +96,19 @@ def broadcast_index(
     Returns:
         None
     """
-    dim, bdim, fdim = len(shape), len(big_shape), len(out_index)
+    # donot reassign out_index, you can assign to it
+    if not isinstance(big_index, np.ndarray):
+        big_index = np.array(big_index, dtype=np.int32)
+    if not isinstance(big_shape, np.ndarray):
+        big_shape = np.array(big_shape, dtype=np.int32)
+    if not isinstance(shape, np.ndarray):
+        shape = np.array(shape, dtype=np.int32)
+    dim, bdim = shape.size, big_shape.size
+    assert len(out_index) == dim  # TODO: convert to out_index.size
+    assert big_index.size == bdim
     for i in range(dim):
         x, y = dim - i - 1, bdim - i - 1
-        if x >= fdim:
-            continue
-        elif shape[x] == big_shape[y]:
+        if shape[x] == big_shape[y]:
             out_index[x] = big_index[y]
         elif shape[x] == 1:
             out_index[x] = 0
@@ -210,7 +221,6 @@ class TensorData:
             aindex: Index = array([index])
         if isinstance(index, tuple):
             aindex = array(index)
-
         # Check for errors
         if aindex.shape[0] != len(self.shape):
             raise IndexingError(f"Index {aindex} must be size of {self.shape}.")
@@ -221,13 +231,14 @@ class TensorData:
                 raise IndexingError(f"Negative indexing for {aindex} not supported.")
 
         # Call fast indexing.
-        return index_to_position(array(index), self._strides)
+        return index_to_position(aindex, self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
         lshape: Shape = array(self.shape)
         out_index: Index = array(self.shape)
+        strides: Strides = array(self.strides)
         for i in range(self.size):
-            to_index(i, lshape, out_index)
+            to_index(i, lshape, out_index, strides)
             yield tuple(out_index)
 
     def sample(self) -> UserIndex:
@@ -260,13 +271,16 @@ class TensorData:
         # Create a new TensorData with the same storage
         return TensorData(
             self._storage.copy(),
-            tuple(self.shape[i] for i in order),
-            tuple(self.strides[i] for i in order),
+            tuple(self.shape[int(i)] for i in order),
+            tuple(self.strides[int(i)] for i in order),
         )
 
     def to_string(self) -> str:
         s = ""
-        for index in self.indices():
+        for index in sorted(
+            self.indices(),
+            key=lambda i: sum(i[self.dims - j - 1] * j for j in range(self.dims)),
+        ):
             l = ""
             for i in range(len(index) - 1, -1, -1):
                 if index[i] == 0:

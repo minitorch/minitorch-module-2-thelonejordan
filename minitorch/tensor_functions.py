@@ -185,21 +185,25 @@ class All(Function):
 class LT(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        ctx.save_for_backward(a, b)
         return a.f.lt_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        return 0.0, 0.0
+        a, b = ctx.saved_tensors
+        return a.zeros(), b.zeros()
 
 
 class EQ(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, b: Tensor) -> Tensor:
+        ctx.save_for_backward(a, b)
         return a.f.eq_zip(a, b)
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
-        return 0.0, 0.0
+        a, b = ctx.saved_tensors
+        return a.zeros(), b.zeros()
 
 
 class IsClose(Function):
@@ -211,13 +215,17 @@ class IsClose(Function):
 class Permute(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, order: Tensor) -> Tensor:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        assert len(order.shape) == 1
+        ctx.save_for_backward(order)
+        order_ = order._tensor._storage.tolist()
+        return a._new(a._tensor.permute(*order_))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        # TODO: Implement for Task 2.4.
-        raise NotImplementedError("Need to implement for Task 2.4")
+        (order,) = ctx.saved_tensors
+        order_ = order._tensor._storage.tolist()
+        rorder = tuple(order_.index(i) for i in range(len(order_)))
+        return grad_output._new(grad_output._tensor.permute(*rorder)), order.zeros()
 
 
 class View(Function):

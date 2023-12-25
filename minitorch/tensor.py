@@ -31,6 +31,8 @@ from .tensor_functions import (
     Sum,
     View,
     tensor,
+    zeros,
+    ones,
 )
 
 if TYPE_CHECKING:
@@ -260,7 +262,9 @@ class Tensor:
         backend: Optional[TensorBackend] = None,
     ) -> Tensor:
         "Create a new tensor from data"
-        return Tensor(TensorData(storage, shape, strides), backend=backend)
+        return Tensor(
+            TensorData(storage, shape, strides), back=History(), backend=backend
+        )
 
     def expand(self, other: Tensor) -> Tensor:
         """
@@ -300,15 +304,18 @@ class Tensor:
         # END CODE CHANGE (2021)
 
     def zeros(self, shape: Optional[UserShape] = None) -> Tensor:
-        def zero(shape: UserShape) -> Tensor:
-            return Tensor.make(
-                [0.0] * int(operators.prod(shape)), shape, backend=self.backend
-            )
-
         if shape is None:
-            out = zero(self.shape)
+            out = zeros(self.shape)
         else:
-            out = zero(shape)
+            out = zeros(shape)
+        out._type_(self.backend)
+        return out
+
+    def ones(self, shape: Optional[UserShape] = None) -> Tensor:
+        if shape is None:
+            out = ones(self.shape)
+        else:
+            out = ones(shape)
         out._type_(self.backend)
         return out
 
