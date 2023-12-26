@@ -276,20 +276,22 @@ class TensorData:
         )
 
     def to_string(self) -> str:
+        def indices(shape: Tuple[int]):
+            def addDim(idx: int):
+                if idx == 1:
+                    return [(i,) for i in range(shape[idx-1])]
+                return[(*x, i) for x in addDim(idx-1) for i in range(shape[idx-1])]
+            return addDim(len(shape))
         s = ""
-        for index in sorted(
-            self.indices(),
-            key=lambda i: sum(i[self.dims - j - 1] * j for j in range(self.dims)),
-        ):
+        for index in indices(self.shape):
             l = ""
             for i in range(len(index) - 1, -1, -1):
                 if index[i] == 0:
                     l = "\n%s[" % ("\t" * i) + l
                 else:
                     break
-            s += l
             v = self.get(index)
-            s += f"{v:3.2f}"
+            s += l + f"{v:3.2f}"
             l = ""
             for i in range(len(index) - 1, -1, -1):
                 if index[i] == self.shape[i] - 1:
