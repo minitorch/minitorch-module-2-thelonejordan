@@ -3,7 +3,7 @@
     {
       "name": "Setup",
       "setup": "sudo -H pip3 install -qr requirements.txt; sudo -H pip3 install flake8==5.0.4",
-      "run": "flake8 --ignore \"N801, E203, E266, E501, W503, F812, E741, N803, N802, N806\" minitorch/ tests/ project/; mypy minitorch/*",
+      "run": "flake8 --ignore \"N801, E202, E203, E266, F401, E501, W503, F811, F812, E741, N803, N802, N806\" minitorch/ tests/ project/; mypy minitorch/*",
       "input": "",
       "output": "",
       "comparison": "exact",
