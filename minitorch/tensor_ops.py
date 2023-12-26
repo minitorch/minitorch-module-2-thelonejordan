@@ -214,7 +214,6 @@ class SimpleOps(TensorOps):
             # Other values when not sum.
             out = a.zeros(tuple(out_shape))
             out._tensor._storage[:] = start
-
             f(*out.tuple(), *a.tuple(), dim)
             return out
 
@@ -268,8 +267,18 @@ def tensor_map(fn: Callable[[float], float]) -> Any:
         in_shape: Shape,
         in_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        dim_out, dim_in = len(out_shape), len(in_shape)
+        size_out, size_in = len(out), len(in_storage)
+        assert size_out == operators.prod(out_shape)
+        assert size_in == operators.prod(in_shape)
+        assert dim_out >= dim_in, "out shape has more dims than in shape"
+        out_index = np.array([0] * dim_out)
+        in_index = np.array([0] * dim_in)
+        for i in range(size_out):
+            to_index(i, out_shape, out_index, out_strides)
+            broadcast_index(out_index, out_shape, in_shape, in_index)
+            j = index_to_position(in_index, in_strides)
+            out[i] = fn(in_storage[j])
 
     return _map
 
@@ -318,8 +327,24 @@ def tensor_zip(fn: Callable[[float, float], float]) -> Any:
         b_shape: Shape,
         b_strides: Strides,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        dim_out, dim_a, dim_b = len(out_shape), len(a_shape), len(b_shape)
+        size_out, size_a, size_b = len(out), len(a_storage), len(b_storage)
+        assert size_out == operators.prod(out_shape)
+        assert size_a == operators.prod(a_shape)
+        assert size_b == operators.prod(b_shape)
+        assert (
+            dim_out >= dim_a and dim_out >= dim_b
+        ), "out shape has more dims than in shapes"
+        out_index = np.array([0] * dim_out)
+        a_index = np.array([0] * dim_a)
+        b_index = np.array([0] * dim_b)
+        for i in range(size_out):
+            to_index(i, out_shape, out_index, out_strides)
+            broadcast_index(out_index, out_shape, a_shape, a_index)
+            a_j = index_to_position(a_index, a_strides)
+            broadcast_index(out_index, out_shape, b_shape, b_index)
+            b_j = index_to_position(b_index, b_strides)
+            out[i] = fn(a_storage[a_j], b_storage[b_j])
 
     return _zip
 
@@ -354,8 +379,23 @@ def tensor_reduce(fn: Callable[[float, float], float]) -> Any:
         a_strides: Strides,
         reduce_dim: int,
     ) -> None:
-        # TODO: Implement for Task 2.3.
-        raise NotImplementedError("Need to implement for Task 2.3")
+        dim_out, dim_a = len(out_shape), len(a_shape)
+        size_out, size_a = len(out), len(a_storage)
+        assert size_out == operators.prod(out_shape)
+        assert size_a == operators.prod(a_shape)
+        assert dim_out >= dim_a, "out shape has less dims than in shape"
+        if int(a_shape[reduce_dim]) == 1:
+            for i in range(size_out):
+                out[i] = a_storage[i]
+        else:
+            out_index = np.array([0] * dim_out)
+            a_index = np.array([0] * dim_a)
+            for i in range(size_a):
+                to_index(i, a_shape, a_index, a_strides)
+                broadcast_index(a_index, a_shape, out_shape, out_index)
+                j = index_to_position(out_index, out_strides)
+                assert j < size_out, "index out of range"
+                out[j] = fn(out[j], a_storage[i])
 
     return _reduce
 

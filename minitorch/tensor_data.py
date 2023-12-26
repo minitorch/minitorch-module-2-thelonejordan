@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Iterable, Optional, Sequence, List, Tuple, Union
 
 import numba
 import numpy as np
@@ -42,12 +42,12 @@ def index_to_position(index: Index, strides: Strides) -> int:
     Returns:
         Position in storage
     """
-
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    return int(sum(i * s for i, s in zip(index, strides)))
 
 
-def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
+def to_index(
+    ordinal: int, shape: Shape, out_index: OutIndex, strides: Optional[Strides] = None
+) -> None:
     """
     Convert an `ordinal` to an index in the `shape`.
     Should ensure that enumerating position 0 ... size of a
@@ -60,8 +60,21 @@ def to_index(ordinal: int, shape: Shape, out_index: OutIndex) -> None:
         out_index : return index corresponding to position.
 
     """
-    # TODO: Implement for Task 2.1.
-    raise NotImplementedError("Need to implement for Task 2.1")
+    # donot reassign out_index, you can assign to it
+    if not isinstance(shape, np.ndarray):
+        shape = np.array(shape, dtype=np.int32)
+    dim, size = shape.size, int(prod(shape))
+    assert len(out_index) == dim, "out_index"  # TODO: convert to out_index.size
+    if ordinal < 0 or ordinal >= size:
+        raise IndexingError("Ordinal position out of bounds")
+    strides = np.array(strides_from_shape(tuple(shape))) if strides is None else strides
+    if not isinstance(strides, np.ndarray):
+        strides = np.array(strides, dtype=np.int32)
+    assert strides.size == dim, "strides and shape dims don't match"
+    for i in reversed(np.argsort(np.multiply(strides, shape)).tolist()):
+        stride = strides[i]
+        out_index[i] = ordinal // stride
+        ordinal %= stride
 
 
 def broadcast_index(
@@ -83,8 +96,24 @@ def broadcast_index(
     Returns:
         None
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    # donot reassign out_index, you can assign to it
+    if not isinstance(big_index, np.ndarray):
+        big_index = np.array(big_index, dtype=np.int32)
+    if not isinstance(big_shape, np.ndarray):
+        big_shape = np.array(big_shape, dtype=np.int32)
+    if not isinstance(shape, np.ndarray):
+        shape = np.array(shape, dtype=np.int32)
+    dim, bdim = shape.size, big_shape.size
+    assert len(out_index) == dim  # TODO: convert to out_index.size
+    assert big_index.size == bdim
+    for i in range(dim):
+        x, y = dim - i - 1, bdim - i - 1
+        if shape[x] == big_shape[y]:
+            out_index[x] = big_index[y]
+        elif shape[x] == 1:
+            out_index[x] = 0
+        else:
+            raise NotImplementedError("broadcasting edge case encountered!")
 
 
 def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
@@ -101,17 +130,50 @@ def shape_broadcast(shape1: UserShape, shape2: UserShape) -> UserShape:
     Raises:
         IndexingError : if cannot broadcast
     """
-    # TODO: Implement for Task 2.2.
-    raise NotImplementedError("Need to implement for Task 2.2")
+    if shape1 == (1,):
+        return shape2
+    if shape2 == (1,):
+        return shape1
+    ndim1, ndim2 = len(shape1), len(shape2)
+    ndim = max(ndim1, ndim2)
+    shape = [0 for _ in range(ndim)]
+    for i in range(min(ndim1, ndim2)):
+        if (
+            (sh2 := shape2[ndim2 - i - 1]) == (sh1 := shape1[ndim1 - i - 1])
+            or sh1 == 1
+            or sh2 == 1
+        ):
+            shape[lidx := (ndim - i - 1)] = max(sh1, sh2)
+            continue
+        raise IndexingError("shapes not broadcastable")
+    shape[:lidx] = (shape1 if ndim == ndim1 else shape2)[:lidx]
+    return tuple(shape)
 
 
 def strides_from_shape(shape: UserShape) -> UserStrides:
-    layout = [1]
-    offset = 1
-    for s in reversed(shape):
-        layout.append(s * offset)
-        offset = s * offset
-    return tuple(reversed(layout[:-1]))
+    dim = len(shape)
+    size = int(prod(shape))
+    strides = [0] * dim
+    for i in range(dim):
+        size //= shape[i]
+        strides[i] = size
+    return tuple(strides)
+
+
+def indices(shape: Tuple[int, ...]) -> Iterable[Sequence[int]]:
+    def addDim(idx: int) -> Sequence[List[int]]:
+        if idx == 1:
+            return [[i] for i in range(shape[idx - 1])]
+        else:
+            ret = []
+            for i in range(shape[idx - 1]):
+                for x in addDim(idx - 1):
+                    x.append(i)
+                    ret.append(x)
+            return ret
+
+    for idx in addDim(len(shape)):
+        yield tuple(idx)
 
 
 class TensorData:
@@ -175,7 +237,6 @@ class TensorData:
             aindex: Index = array([index])
         if isinstance(index, tuple):
             aindex = array(index)
-
         # Check for errors
         if aindex.shape[0] != len(self.shape):
             raise IndexingError(f"Index {aindex} must be size of {self.shape}.")
@@ -186,14 +247,10 @@ class TensorData:
                 raise IndexingError(f"Negative indexing for {aindex} not supported.")
 
         # Call fast indexing.
-        return index_to_position(array(index), self._strides)
+        return index_to_position(aindex, self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
-        lshape: Shape = array(self.shape)
-        out_index: Index = array(self.shape)
-        for i in range(self.size):
-            to_index(i, lshape, out_index)
-            yield tuple(out_index)
+        return indices(tuple(self.shape))
 
     def sample(self) -> UserIndex:
         return tuple((random.randint(0, s - 1) for s in self.shape))
@@ -222,8 +279,12 @@ class TensorData:
             range(len(self.shape))
         ), f"Must give a position to each dimension. Shape: {self.shape} Order: {order}"
 
-        # TODO: Implement for Task 2.1.
-        raise NotImplementedError("Need to implement for Task 2.1")
+        # Create a new TensorData with the same storage
+        return TensorData(
+            self._storage.copy(),
+            tuple(self.shape[int(i)] for i in order),
+            tuple(self.strides[int(i)] for i in order),
+        )
 
     def to_string(self) -> str:
         s = ""
@@ -234,9 +295,8 @@ class TensorData:
                     l = "\n%s[" % ("\t" * i) + l
                 else:
                     break
-            s += l
-            v = self.get(index)
-            s += f"{v:3.2f}"
+            v = self.get(tuple(index))
+            s += l + f"{v:3.2f}"
             l = ""
             for i in range(len(index) - 1, -1, -1):
                 if index[i] == self.shape[i] - 1:
