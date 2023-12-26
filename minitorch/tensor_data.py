@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Iterable, Optional, Sequence, List, Tuple, Union
 
 import numba
 import numpy as np
@@ -276,21 +276,29 @@ class TensorData:
         )
 
     def to_string(self) -> str:
-        def indices(shape: Tuple[int]):
-            def addDim(idx: int):
+        def indices(shape: Tuple[int, ...]) -> Iterable[List[int]]:
+            def addDim(idx: int) -> Iterable[List[int]]:
                 if idx == 1:
-                    return [(i,) for i in range(shape[idx-1])]
-                return[(*x, i) for x in addDim(idx-1) for i in range(shape[idx-1])]
+                    for i in range(shape[idx - 1]):
+                        yield [i]
+                else:
+                    a = addDim(idx - 1)
+                    for i in range(shape[idx - 1]):
+                        for x in a:
+                            x.append(i)
+                            yield x
+
             return addDim(len(shape))
+
         s = ""
-        for index in indices(self.shape):
+        for index in indices(tuple(self.shape)):
             l = ""
             for i in range(len(index) - 1, -1, -1):
                 if index[i] == 0:
                     l = "\n%s[" % ("\t" * i) + l
                 else:
                     break
-            v = self.get(index)
+            v = self.get(tuple(index))
             s += l + f"{v:3.2f}"
             l = ""
             for i in range(len(index) - 1, -1, -1):
