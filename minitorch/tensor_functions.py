@@ -82,8 +82,8 @@ class Inv(Function):
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
-        (t1,) = ctx.saved_values
-        return t1.f.inv_back_zip(t1, grad_output)
+        (t1,) = ctx.saved_tensors
+        return grad_output.f.inv_back_zip(t1, grad_output)
 
 
 class Add(Function):
@@ -105,7 +105,7 @@ class Mul(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         a, b = ctx.saved_tensors
-        return b.f.mul_zip(b, grad_output), a.f.mul_zip(a, grad_output)
+        return grad_output.f.mul_zip(b, grad_output), a.f.mul_zip(a, grad_output)
 
 
 class Sigmoid(Function):
@@ -118,7 +118,7 @@ class Sigmoid(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (ret,) = ctx.saved_tensors
-        return ret.f.mul_zip(
+        return grad_output.f.mul_zip(
             ret.f.mul_zip(grad_output, ret),
             ret.f.add_zip(ones(ret.shape), ret.f.neg_map(ret)),
         )
@@ -133,7 +133,7 @@ class ReLU(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (t1,) = ctx.saved_tensors
-        return t1.f.relu_back_zip(t1, grad_output)
+        return grad_output.f.relu_back_zip(t1, grad_output)
 
 
 class Log(Function):
@@ -145,7 +145,7 @@ class Log(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (t1,) = ctx.saved_tensors
-        return t1.f.log_back_zip(t1, grad_output)
+        return grad_output.f.log_back_zip(t1, grad_output)
 
 
 class Exp(Function):
@@ -158,18 +158,16 @@ class Exp(Function):
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tensor:
         (ret,) = ctx.saved_tensors
-        return ret.f.mul_zip(ret, grad_output)
+        return grad_output.f.mul_zip(ret, grad_output)
 
 
 class Sum(Function):
     @staticmethod
     def forward(ctx: Context, a: Tensor, dim: Tensor) -> Tensor:
-        # ctx.save_for_backward(a.shape, dim)
         return a.f.add_reduce(a, int(dim.item()))
 
     @staticmethod
     def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, float]:
-        # a_shape, dim = ctx.saved_values
         return grad_output, 0.0
 
 

@@ -67,7 +67,7 @@ def to_index(
     assert len(out_index) == dim, "out_index"  # TODO: convert to out_index.size
     if ordinal < 0 or ordinal >= size:
         raise IndexingError("Ordinal position out of bounds")
-    strides = strides_from_shape(shape) if strides is None else strides
+    strides = np.array(strides_from_shape(tuple(shape))) if strides is None else strides
     if not isinstance(strides, np.ndarray):
         strides = np.array(strides, dtype=np.int32)
     assert strides.size == dim, "strides and shape dims don't match"

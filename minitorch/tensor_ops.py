@@ -272,8 +272,8 @@ def tensor_map(fn: Callable[[float], float]) -> Any:
         assert size_out == operators.prod(out_shape)
         assert size_in == operators.prod(in_shape)
         assert dim_out >= dim_in, "out shape has more dims than in shape"
-        out_index = [0] * dim_out
-        in_index = [0] * dim_in
+        out_index = np.array([0] * dim_out)
+        in_index = np.array([0] * dim_in)
         for i in range(size_out):
             to_index(i, out_shape, out_index, out_strides)
             broadcast_index(out_index, out_shape, in_shape, in_index)
@@ -335,9 +335,9 @@ def tensor_zip(fn: Callable[[float, float], float]) -> Any:
         assert (
             dim_out >= dim_a and dim_out >= dim_b
         ), "out shape has more dims than in shapes"
-        out_index = [0] * dim_out
-        a_index = [0] * dim_a
-        b_index = [0] * dim_b
+        out_index = np.array([0] * dim_out)
+        a_index = np.array([0] * dim_a)
+        b_index = np.array([0] * dim_b)
         for i in range(size_out):
             to_index(i, out_shape, out_index, out_strides)
             broadcast_index(out_index, out_shape, a_shape, a_index)

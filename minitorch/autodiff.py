@@ -68,9 +68,8 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     def dfs(v: Variable) -> None:
         if v.unique_id not in visited:
             visited.add(v.unique_id)
-            if len(p := v.parents) > 0:
-                for pv in p:
-                    dfs(pv)
+            for pv in v.parents:
+                dfs(pv)
             topo.append(v)
 
     dfs(variable)
