@@ -160,6 +160,22 @@ def strides_from_shape(shape: UserShape) -> UserStrides:
     return tuple(strides)
 
 
+def indices(shape: Tuple[int, ...]) -> Iterable[Sequence[int]]:
+    def addDim(idx: int) -> Sequence[List[int]]:
+        if idx == 1:
+            return [[i] for i in range(shape[idx - 1])]
+        else:
+            ret = []
+            for i in range(shape[idx - 1]):
+                for x in addDim(idx - 1):
+                    x.append(i)
+                    ret.append(x)
+            return ret
+
+    for idx in addDim(len(shape)):
+        yield tuple(idx)
+
+
 class TensorData:
     _storage: Storage
     _strides: Strides
@@ -234,12 +250,7 @@ class TensorData:
         return index_to_position(aindex, self._strides)
 
     def indices(self) -> Iterable[UserIndex]:
-        lshape: Shape = array(self.shape)
-        out_index: Index = array(self.shape)
-        strides: Strides = array(self.strides)
-        for i in range(self.size):
-            to_index(i, lshape, out_index, strides)
-            yield tuple(out_index)
+        return indices(tuple(self.shape))
 
     def sample(self) -> UserIndex:
         return tuple((random.randint(0, s - 1) for s in self.shape))
@@ -276,22 +287,8 @@ class TensorData:
         )
 
     def to_string(self) -> str:
-        def indices(shape: Tuple[int, ...]) -> Iterable[List[int]]:
-            def addDim(idx: int) -> Iterable[List[int]]:
-                if idx == 1:
-                    for i in range(shape[idx - 1]):
-                        yield [i]
-                else:
-                    a = addDim(idx - 1)
-                    for i in range(shape[idx - 1]):
-                        for x in a:
-                            x.append(i)
-                            yield x
-
-            return addDim(len(shape))
-
         s = ""
-        for index in indices(tuple(self.shape)):
+        for index in self.indices():
             l = ""
             for i in range(len(index) - 1, -1, -1):
                 if index[i] == 0:
